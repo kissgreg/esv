@@ -33,10 +33,19 @@ def test_critical_value_edge_case(device):
 
 def test_overheat_logic(device):
     """Dedicated test for the overheating component logic."""
+    # 1. Set initial state with data (READY bit enabled)
+    device.memory.write(0, 123)
+    assert device.status.is_ready is True
+    
+    # 2. Setup mock sensor
     device.setup_mock_sensor(lambda: 60) # 60 fok
+    
+    # 3. Trigger C logic
     device.run_alarm_check()
+    
+    # 4. Check if overheat bit has been set and ready bit is still enabled
     assert device.status.is_overheating is True
-    assert device.status.is_ready is True # A check nem törli a többi bitet
+    assert device.status.is_ready is True, "Ready bit should persist after alarm check"
 
 def test_temperature_alarm_trigger(device):
     """Verify that the alarm bit is set when the sensor exceeds 50 degrees."""
