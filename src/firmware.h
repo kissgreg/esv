@@ -30,4 +30,20 @@ uint32_t get_status(void);
  */
 void reset_device(void);
 
+/**
+ * @brief Registers a callback function to simulate hardware sensor readings.
+ * * This allows the test environment to inject mock sensor data into the firmware
+ * logic without requiring physical hardware.
+ * * @param callback Pointer to a function that returns a 16-bit signed integer.
+ */
+void mock_register_sensor_callback(int16_t (*callback)(void));
+
+/**
+ * @brief Evaluates the current temperature from the registered sensor.
+ * * Reads the value from the mocked sensor. If the value exceeds 50 degrees,
+ * it sets the 'Overheat Alarm' bit (bit 4) in the status register.
+ * * @return 1 if alarm is triggered, 0 if safe, -1 if no sensor is registered.
+ */
+int check_temperature_alarm(void);
+
 #endif // FIRMWARE_H

@@ -1,6 +1,17 @@
 #include <stdint.h>
 #include "firmware.h"
 
+/* --- Hardware Mocking Section --- */
+
+// Function pointer for the sensor read operation
+// In a real system, this would point to the I2C/SPI driver
+static int16_t (*read_hw_sensor)(void) = NULL;
+
+// This function allows the test suite to "plug in" a mock sensor
+void mock_register_sensor_callback(int16_t (*callback)(void)) {
+    read_hw_sensor = callback;
+}
+
 /* Internal device state */
 static uint32_t status_reg = 0;
 static int32_t data_buffer[10] = {0};
@@ -12,6 +23,20 @@ static int32_t data_buffer[10] = {0};
 
 /* Magic number for edge-case simulation */
 #define MAGIC_CRITICAL_VAL (int32_t)0xDEAD
+
+// A function that processes sensor data
+// If the sensor is above 50 degrees, trigger an alarm
+int check_temperature_alarm(void) {
+    if (read_hw_sensor == NULL) return -1; // Hardware not initialized
+
+    int16_t temp = read_hw_sensor();
+    
+    if (temp > 50) {
+        status_reg |= (1 << 4); // Bit 4: Overheat Alarm
+        return 1;
+    }
+    return 0;
+}
 
 void write_buffer(int index, int32_t value) {
     if (index >= 0 && index < 10) {

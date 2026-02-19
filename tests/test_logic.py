@@ -33,3 +33,28 @@ def test_critical_value_edge_case(device):
     assert device.is_data_ready is True
     assert device.is_critical_error is True
     assert device.has_general_error is False
+
+def test_temperature_alarm_trigger(device):
+    """Verify that the alarm bit is set when the sensor exceeds 50 degrees."""
+    
+    # Define what the mock hardware should return
+    def mock_hot_sensor():
+        return 55  # 55 degrees Celsius
+        
+    device.setup_mock_sensor(mock_hot_sensor)
+    
+    # Trigger the logic in C
+    result = device.lib.check_temperature_alarm()
+    
+    assert result == 1
+    assert (device.get_raw_status() & (1 << 4)) != 0  # Alarm bit set
+
+def test_temperature_no_alarm(device):
+    """Verify no alarm when temperature is safe."""
+    
+    def mock_cold_sensor():
+        return 20
+        
+    device.setup_mock_sensor(mock_cold_sensor)
+    assert device.lib.check_temperature_alarm() == 0
+    assert (device.get_raw_status() & (1 << 4)) == 0

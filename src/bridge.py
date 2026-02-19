@@ -78,3 +78,17 @@ class FirmwareBridge:
         if error:
             logger.error("General Error bit detected")
         return error
+
+    def setup_mock_sensor(self, python_callback):
+        """
+        Registers a Python function as a hardware sensor driver in C.
+        The python_callback should return an int16.
+        """
+        # Create a C-compatible function type: returns int16, takes no arguments
+        CALLBACK_TYPE = ctypes.CFUNCTYPE(ctypes.c_int16)
+        
+        # Store the callback to prevent garbage collection
+        self._sensor_callback = CALLBACK_TYPE(python_callback)
+        
+        # Register it in the C library
+        self.lib.mock_register_sensor_callback(self._sensor_callback)
