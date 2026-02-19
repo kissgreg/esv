@@ -10,7 +10,7 @@ build:
 
 # Run the Pytest suite
 test: build
-	PYTHONPATH=. pytest tests/ -v
+	PYTHONPATH=. pytest tests/ -v --cov=src --cov-report=term-missing
 
 # Clean up build artifacts
 clean:

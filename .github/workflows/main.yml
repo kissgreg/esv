@@ -22,11 +22,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          # Added pytest-cov for coverage and pytest-html for reporting
+          pip install pytest pytest-cov pytest-html
 
       - name: Run verification suite
-        # Ez a parancs lefordítja a C kódot és futtatja a teszteket
-        run: make test
+        run: |
+          PYTHONPATH=. pytest tests/ -v --cov=src --cov-report=term-missing --html=report.html --self-contained-html
+
+      - name: Upload Test Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-report
+          path: report.html
 
       - name: Clean up
         if: always()
