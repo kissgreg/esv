@@ -4,16 +4,14 @@ CFLAGS = -shared -fPIC
 TARGET_LIB = src/libfirmware.so
 SRC_C = src/firmware.c
 
-# Build the shared library
 build:
 	$(CC) $(CFLAGS) -o $(TARGET_LIB) $(SRC_C)
 
-# Run the Pytest suite
+# All-in-one test command with coverage and html report
 test: build
-	PYTHONPATH=. pytest tests/ -v --cov=src --cov-report=term-missing
+	PYTHONPATH=. pytest tests/ -v --cov=src --cov-report=term-missing --html=report.html --self-contained-html
 
-# Clean up build artifacts
 clean:
-	rm -f $(TARGET_LIB)
+	rm -f $(TARGET_LIB) report.html
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	rm -rf .pytest_cache
