@@ -10,7 +10,7 @@ build:
 
 # Run the Pytest suite
 test: build
-	pytest tests/ -v
+	PYTHONPATH=. pytest tests/ -v
 
 # Clean up build artifacts
 clean:
