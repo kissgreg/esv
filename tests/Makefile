@@ -1,8 +1,8 @@
 # Variables
 CC = gcc
 CFLAGS = -shared -fPIC
-TARGET_LIB = src/c_logic/libfirmware.so
-SRC_C = src/c_logic/firmware.c
+TARGET_LIB = src/libfirmware.so
+SRC_C = src/firmware.c
 
 # Build the shared library
 build:
