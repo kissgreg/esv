@@ -1,3 +1,5 @@
+![Build Status](https://github.com/kissgreg/esv/actions/workflows/main.yml/badge.svg)
+
 # Embedded System Verification Framework (ESV-Framework)
 
 ## Project Overview
