@@ -3,92 +3,83 @@ import os
 import sys
 import logging
 
-# Configure logging to show timestamps and severity levels
-# This is crucial for debugging embedded systems
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Centralized logging configuration
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class FirmwareBridge:
-    def __init__(self):
-        lib_name = "libfirmware.so" if not sys.platform.startswith("win") else "firmware.dll"
-        # library is in the same directory
-        lib_path = os.path.join(os.path.dirname(__file__), lib_name)
-        
-        logger.info(f"Initializing bridge: loading library from {lib_path}")
-        
-        try:
-            self.lib = ctypes.CDLL(lib_path)
-            # Explicitly define return types for safety
-            self.lib.get_status.restype = ctypes.c_uint32
-            self.lib.read_buffer.restype = ctypes.c_int32
-            logger.info("Shared library loaded successfully")
-        except OSError as e:
-            logger.error(f"Failed to load shared library: {e}")
-            raise RuntimeError(f"Failed to load shared library: {e}")
+class StatusRegister:
+    """Encapsulates status bit logic (Abstraction & Encapsulation)."""
+    def __init__(self, lib):
+        self._lib = lib
+        self._BITS = {
+            "READY": (1 << 0),
+            "CRITICAL": (1 << 3),
+            "OVERHEAT": (1 << 4),
+            "ERROR": (1 << 7)
+        }
 
-    def reset(self):
-        """Reset the virtual device to its initial state."""
-        logger.warning("Device RESET triggered")
-        self.lib.reset_device()
+    def read_raw(self):
+        return self._lib.get_status()
 
-    def write(self, index: int, value: int):
-        """Write a 32-bit integer to the buffer at a specific index."""
-        logger.info(f"WRITE operation: index={index}, value=0x{value:08X} ({value})")
-        self.lib.write_buffer(ctypes.c_int(index), ctypes.c_int32(value))
+    @property
+    def is_overheating(self):
+        status = self.read_raw()
+        is_set = bool(status & self._BITS["OVERHEAT"])
+        if is_set:
+            logger.critical("!!! OVERHEAT DETECTED !!!")
+        return is_set
 
-    def read(self, index: int) -> int:
-        """Read a 32-bit integer from the buffer."""
-        val = self.lib.read_buffer(ctypes.c_int(index))
-        logger.info(f"READ operation: index={index}, returned_value=0x{val:08X}")
+    @property
+    def is_ready(self):
+        return bool(self.read_raw() & self._BITS["READY"])
+
+class MemoryInterface:
+    """Encapsulates buffer operations (Abstraction)."""
+    def __init__(self, lib):
+        self._lib = lib
+
+    def write(self, index, value):
+        logger.info(f"MEM_WRITE: [{index}] = 0x{value:08X}")
+        self._lib.write_buffer(ctypes.c_int(index), ctypes.c_int32(value))
+
+    def read(self, index):
+        val = self._lib.read_buffer(ctypes.c_int(index))
+        logger.info(f"MEM_READ: [{index}] -> 0x{val:08X}")
         return val
 
-    def get_raw_status(self) -> int:
-        """Get the full 32-bit status register."""
-        status = self.lib.get_status()
-        # Log status only if it's non-zero to keep logs clean
-        if status != 0:
-            logger.debug(f"Status register read: 0x{status:08X}")
-        return status
+class FirmwareBridge:
+    """The main 'Device' class using Composition over Inheritance."""
+    def __init__(self):
+        lib_name = "libfirmware.so" if not sys.platform.startswith("win") else "firmware.dll"
+        lib_path = os.path.join(os.path.dirname(__file__), lib_name)
+        
+        try:
+            self._lib = ctypes.CDLL(lib_path)
+            # Configure C function signatures
+            self._lib.get_status.restype = ctypes.c_uint32
+            self._lib.read_buffer.restype = ctypes.c_int32
+            
+            # COMPOSITION: The bridge HAS-A status monitor and a memory interface
+            self.status = StatusRegister(self._lib)
+            self.memory = MemoryInterface(self._lib)
+            
+            logger.info("Hardware Bridge initialized with component-based mapping.")
+        except OSError as e:
+            logger.error(f"Library load failed: {e}")
+            raise
 
-    # Property-based status bits
+    def reset(self):
+        """Orchestrates reset across components."""
+        logger.warning("System-wide reset initiated.")
+        self._lib.reset_device()
 
-    @property
-    def is_data_ready(self) -> bool:
-        """Check if bit 0 (Data Ready) is set."""
-        ready = bool(self.get_raw_status() & (1 << 0))
-        if ready:
-            logger.debug("Data Ready bit detected")
-        return ready
-
-    @property
-    def is_critical_error(self) -> bool:
-        """Check if bit 3 (Critical Error) is set."""
-        error = bool(self.get_raw_status() & (1 << 3))
-        if error:
-            logger.critical("CRITICAL ERROR bit detected in status register!")
-        return error
-
-    @property
-    def has_general_error(self) -> bool:
-        """Check if bit 7 (General Error) is set."""
-        error = bool(self.get_raw_status() & (1 << 7))
-        if error:
-            logger.error("General Error bit detected")
-        return error
-
-    def setup_mock_sensor(self, python_callback):
-        """
-        Registers a Python function as a hardware sensor driver in C.
-        The python_callback should return an int16.
-        """
-        # Create a C-compatible function type: returns int16, takes no arguments
+    def setup_mock_sensor(self, callback):
+        """Polymorphism: Injecting Python behavior into C."""
         CALLBACK_TYPE = ctypes.CFUNCTYPE(ctypes.c_int16)
-        
-        # Store the callback to prevent garbage collection
-        self._sensor_callback = CALLBACK_TYPE(python_callback)
-        
-        # Register it in the C library
-        self.lib.mock_register_sensor_callback(self._sensor_callback)
+        self._sensor_cb = CALLBACK_TYPE(callback)
+        self._lib.mock_register_sensor_callback(self._sensor_cb)
+        logger.info("Mock sensor driver registered.")
+
+    def run_alarm_check(self):
+        """Triggers the firmware's internal logic."""
+        return self._lib.check_temperature_alarm()
