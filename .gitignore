@@ -1,0 +1,13 @@
+# build
+*.so
+*.dll
+*.o
+*.out
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# IDE
+.vscode/
