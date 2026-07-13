@@ -48,7 +48,7 @@ class MemoryInterface:
         return val
 
 class FirmwareBridge:
-    """The main 'Device' class using Composition over Inheritance."""
+    """The main 'Device' class"""
     def __init__(self):
         lib_name = "libfirmware.so" if not sys.platform.startswith("win") else "firmware.dll"
         lib_path = os.path.join(os.path.dirname(__file__), lib_name)
